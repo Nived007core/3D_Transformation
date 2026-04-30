@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>3D TRANSFORMATION — Computer Graphics & Animation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&family=JetBrains+Mono:wght@300;400&display=swap');
+
+:root {
+  --bg: #0a0a0e;
+  --bg2: #111118;
+  --surface: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.08);
+  --text: #f0f0f5;
+  --muted: #666677;
+  --accent: #e8ff47;
+  --accent2: #ff4757;
+  --blue: #4ecdc4;
+  --purple: #a855f7;
+  --white: #ffffff;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* CURSOR */
+#cur{position:fixed;width:8px;height:8px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .2s,height .2s;}
+#cur-trail{position:fixed;width:32px;height:32px;border:1px solid rgba(232,255,71,.4);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:all .12s ease;}
+body:hover #cur{width:8px;}
+
+/* LOADER */
+#loader{
+  position:fixed;inset:0;z-index:10000;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .6s ease;
+}
+#loader.done{opacity:0;pointer-events:none;}
+.loader-text{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,6vw,5rem);letter-spacing:.15em;color:var(--accent);}
+.loader-bar{width:220px;height:1px;background:rgba(255,255,255,.1);margin-top:2rem;overflow:hidden;}
+.loader-fill{height:100%;background:var(--accent);width:0%;transition:width .05s linear;}
+.loader-sub{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);margin-top:1rem;letter-spacing:.12em;}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:500;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1.4rem 3rem;
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(24px);
+  background:rgba(10,10,14,.7);
+}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.2em;color:var(--accent);}
+.nav-links{display:flex;gap:2.2rem;}
+.nav-links a{color:var(--muted);text-decoration:none;font-size:.8rem;letter-spacing:.1em;transition:color .2s;text-transform:uppercase;}
+.nav-links a:hover{color:var(--accent);}
+.nav-counter{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--muted);}
+
+/* HERO — FULL HEIGHT */
+#hero{
+  position:relative;height:100vh;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  padding:0 3rem 4rem;
+  overflow:hidden;
+}
+#hero-canvas{position:absolute;inset:0;z-index:0;}
+.hero-noise{
+  position:absolute;inset:0;z-index:1;
+  background:radial-gradient(ellipse 80% 60% at 60% 40%,transparent 40%,rgba(10,10,14,.8) 100%);
+  pointer-events:none;
+}
+.hero-content{position:relative;z-index:2;max-width:900px;}
+.hero-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:1.5rem;
+  display:flex;align-items:center;gap:1rem;
+}
+.hero-eyebrow::before{content:'';width:40px;height:1px;background:var(--accent);}
+h1.hero-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(4rem,12vw,11rem);
+  line-height:.92;letter-spacing:-.01em;
+  margin-bottom:2rem;
+}
+h1.hero-title .accent{color:var(--accent);}
+h1.hero-title .stroke{
+  -webkit-text-stroke:1px rgba(240,240,245,.4);
+  color:transparent;
+}
+.hero-desc{
+  font-size:1rem;color:var(--muted);line-height:1.7;
+  max-width:440px;margin-bottom:3rem;
+}
+.hero-row{display:flex;align-items:center;gap:3rem;flex-wrap:wrap;}
+.hero-stat{text-align:left;}
+.hero-stat-num{font-family:'Bebas Neue',sans-serif;font-size:2.8rem;color:var(--white);line-height:1;}
+.hero-stat-label{font-size:.7rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:.3rem;}
+.hero-scroll{
+  position:absolute;right:3rem;bottom:4rem;z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:.6rem;
+  writing-mode:vertical-rl;text-orientation:mixed;
+}
+.hero-scroll span{font-size:.65rem;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+.scroll-line{width:1px;height:60px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollPulse 2s infinite;}
+
+/* MARQUEE */
+.marquee-wrap{
+  position:relative;z-index:10;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--accent);overflow:hidden;padding:.7rem 0;
+}
+.marquee-track{display:flex;white-space:nowrap;animation:marqueeScroll 20s linear infinite;}
+.marquee-item{
+  font-family:'Bebas Neue',sans-serif;font-size:1rem;letter-spacing:.15em;
+  color:var(--bg);padding:0 2rem;
+}
+.marquee-dot{color:rgba(0,0,0,.4);}
+
+/* SECTIONS */
+section{position:relative;z-index:10;}
+.section-num{
+  font-family:'JetBrains Mono',monospace;font-size:.68rem;
+  color:var(--accent);letter-spacing:.15em;margin-bottom:.6rem;
+}
+.section-label{
+  font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--muted);border-left:2px solid var(--accent);padding-left:.8rem;
+  margin-bottom:1.2rem;
+}
+h2.sec-title{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(2.5rem,6vw,5.5rem);
+  line-height:.95;letter-spacing:.02em;margin-bottom:1.5rem;
+}
+h2.sec-title em{color:var(--accent);font-style:normal;}
+h2.sec-title .stroke{-webkit-text-stroke:1px rgba(255,255,255,.3);color:transparent;font-style:normal;}
+.body-text{color:var(--muted);line-height:1.8;font-size:.95rem;}
+
+/* ABOUT SECTION */
+#about{padding:7rem 3rem;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;}
+.about-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+.astat{background:var(--bg2);padding:2rem;text-align:center;}
+.astat-n{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;color:var(--accent);display:block;line-height:1;}
+.astat-l{font-size:.72rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-top:.4rem;}
+
+/* TRANSFORM PANELS */
+.transform-section{padding:6rem 3rem;border-top:1px solid var(--border);}
+.tx-layout{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start;margin-top:3rem;}
+.tx-info{}
+.tx-info p{color:var(--muted);line-height:1.8;font-size:.92rem;margin-bottom:1.2rem;}
+.matrix-display{
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:4px;padding:1.4rem;color:var(--blue);
+  margin-top:1.5rem;line-height:1.8;
+}
+.matrix-display .hl{color:var(--accent);}
+.axis-badges{display:flex;gap:.6rem;margin-top:1.5rem;flex-wrap:wrap;}
+.badge{
+  padding:.35rem .9rem;border:1px solid var(--border);
+  border-radius:2px;font-size:.72rem;letter-spacing:.08em;
+  font-family:'JetBrains Mono',monospace;
+}
+.badge.x{border-color:var(--accent2);color:var(--accent2);}
+.badge.y{border-color:var(--accent);color:var(--accent);}
+.badge.z{border-color:var(--blue);color:var(--blue);}
+
+/* CANVAS PANELS */
+.canvas-panel{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;position:relative;
+}
+.canvas-panel canvas{display:block;width:100%!important;}
+.panel-label{
+  position:absolute;top:1rem;left:1rem;
+  font-family:'JetBrains Mono',monospace;font-size:.65rem;
+  letter-spacing:.15em;color:var(--muted);text-transform:uppercase;
+  background:rgba(10,10,14,.8);padding:.3rem .7rem;border-radius:2px;
+  border:1px solid var(--border);
+}
+.panel-hint{
+  position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);
+  font-size:.65rem;letter-spacing:.1em;color:var(--muted);
+  text-align:center;white-space:nowrap;
+  background:rgba(10,10,14,.8);padding:.35rem .8rem;border-radius:2px;
+  border:1px solid var(--border);
+}
+.readout{
+  position:absolute;top:1rem;right:1rem;
+  font-family:'JetBrains Mono',monospace;font-size:.65rem;
+  color:var(--accent);line-height:1.8;text-align:right;
+  background:rgba(10,10,14,.8);padding:.5rem .8rem;border-radius:2px;
+  border:1px solid var(--border);
+}
+
+/* TRANSLATION CONTROLS */
+.trans-controls{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-top:1.2rem;}
+.ctrl-btn{
+  padding:.6rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:2px;color:var(--muted);font-size:.8rem;cursor:pointer;
+  transition:all .2s;font-family:'JetBrains Mono',monospace;text-align:center;
+}
+.ctrl-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(232,255,71,.08);}
+.ctrl-btn:active{transform:scale(.95);}
+
+/* SCALE CONTROLS */
+.scale-sliders{display:flex;flex-direction:column;gap:1.2rem;margin-top:1.2rem;}
+.slider-row{display:flex;align-items:center;gap:1rem;}
+.slider-ax{font-family:'JetBrains Mono',monospace;font-size:.75rem;width:20px;}
+.slider-ax.x{color:var(--accent2);}
+.slider-ax.y{color:var(--accent);}
+.slider-ax.z{color:var(--blue);}
+input[type=range]{
+  -webkit-appearance:none;flex:1;height:2px;
+  border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range].rx{background:linear-gradient(90deg,var(--accent2) calc(var(--val)*100%), rgba(255,255,255,.1) 0);}
+input[type=range].ry{background:linear-gradient(90deg,var(--accent) calc(var(--val)*100%), rgba(255,255,255,.1) 0);}
+input[type=range].rz{background:linear-gradient(90deg,var(--blue) calc(var(--val)*100%), rgba(255,255,255,.1) 0);}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  border-radius:50%;cursor:pointer;
+}
+input[type=range].rx::-webkit-slider-thumb{background:var(--accent2);box-shadow:0 0 8px rgba(255,71,87,.5);}
+input[type=range].ry::-webkit-slider-thumb{background:var(--accent);box-shadow:0 0 8px rgba(232,255,71,.5);}
+input[type=range].rz::-webkit-slider-thumb{background:var(--blue);box-shadow:0 0 8px rgba(78,205,196,.5);}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);min-width:40px;text-align:right;}
+
+/* HOW IT WORKS */
+#how{padding:6rem 3rem;border-top:1px solid var(--border);}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-top:3rem;}
+.step{background:var(--bg2);padding:2rem 1.5rem;}
+.step-num{font-family:'Bebas Neue',sans-serif;font-size:3rem;color:var(--accent);opacity:.3;margin-bottom:1rem;}
+.step h3{font-size:.9rem;font-weight:500;margin-bottom:.7rem;}
+.step p{font-size:.8rem;color:var(--muted);line-height:1.7;}
+
+/* TECH STACK */
+#tech{padding:6rem 3rem;border-top:1px solid var(--border);}
+.tech-list{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--border);margin-top:3rem;}
+.tech-item{
+  background:var(--bg2);padding:2.5rem 2rem;
+  transition:background .3s;cursor:default;
+}
+.tech-item:hover{background:#16161e;}
+.tech-abbr{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--accent);display:block;margin-bottom:.5rem;}
+.tech-name{font-size:.75rem;color:var(--text);font-weight:500;display:block;margin-bottom:.3rem;}
+.tech-desc{font-size:.72rem;color:var(--muted);}
+
+/* APPS */
+#apps{padding:6rem 3rem;border-top:1px solid var(--border);}
+.apps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-top:3rem;}
+.app-card{
+  background:var(--bg2);padding:2.5rem 2rem;
+  transition:background .3s;position:relative;overflow:hidden;
+}
+.app-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(232,255,71,.06) 0%,transparent 60%);
+  opacity:0;transition:opacity .3s;
+}
+.app-card:hover{background:#14141c;}
+.app-card:hover::before{opacity:1;}
+.app-icon{font-size:2rem;margin-bottom:1.2rem;display:block;}
+.app-card h3{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:.05em;margin-bottom:.7rem;}
+.app-card p{font-size:.82rem;color:var(--muted);line-height:1.7;}
+
+/* CONCLUSION */
+#conclusion{padding:8rem 3rem;border-top:1px solid var(--border);text-align:center;}
+.conclusion-inner{max-width:700px;margin:0 auto;}
+.big-quote{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(2rem,5vw,4rem);
+  line-height:1.1;letter-spacing:.03em;
+  margin-bottom:2rem;color:var(--muted);
+}
+.big-quote strong{color:var(--text);}
+.big-quote .accent{color:var(--accent);}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);
+  padding:2rem 3rem;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);
+}
+footer .fl{color:var(--accent);}
+
+/* INTERACTIVE OCEAN (hero bg) */
+#hero-canvas{background:var(--bg);}
+
+/* ANIMATIONS */
+@keyframes scrollPulse{0%,100%{opacity:1;}50%{opacity:.2;}}
+@keyframes marqueeScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .8s ease,transform .8s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+/* Glow effects */
+.glow-dot{
+  position:absolute;border-radius:50%;pointer-events:none;
+  filter:blur(80px);opacity:.15;
+}
+.gd1{width:600px;height:600px;background:var(--accent);top:-200px;left:-100px;}
+.gd2{width:400px;height:400px;background:var(--purple);bottom:0;right:0;}
+
+/* ROT section fullwidth canvas */
+#rot-canvas-full{
+  width:100%;height:500px;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  display:block;background:var(--bg2);
+}
+
+/* Horizontal rule */
+.hr{border:none;border-top:1px solid var(--border);}
+
+/* ═══════════════════════════════════════════
+   MOBILE HAMBURGER MENU
+   ═══════════════════════════════════════════ */
+.nav-hamburger{
+  display:none;flex-direction:column;gap:5px;cursor:pointer;
+  padding:.4rem;background:none;border:none;z-index:600;
+}
+.nav-hamburger span{
+  display:block;width:22px;height:1.5px;background:var(--accent);
+  transition:all .3s ease;
+}
+.nav-hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg);}
+.nav-hamburger.open span:nth-child(2){opacity:0;}
+.nav-hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}
+
+.nav-mobile-overlay{
+  display:none;position:fixed;inset:0;z-index:490;
+  background:rgba(10,10,14,.97);backdrop-filter:blur(20px);
+  flex-direction:column;align-items:center;justify-content:center;gap:2rem;
+}
+.nav-mobile-overlay.open{display:flex;}
+.nav-mobile-overlay a{
+  font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:.15em;
+  color:var(--muted);text-decoration:none;transition:color .2s;
+}
+.nav-mobile-overlay a:hover{color:var(--accent);}
+
+/* ═══════════════════════════════════════════
+   MOBILE / RESPONSIVE OVERRIDES
+   ═══════════════════════════════════════════ */
+
+/* Hide cursor on touch devices */
+@media (hover:none),(pointer:coarse){
+  #cur,#cur-trail{display:none!important;}
+  body{cursor:auto;}
+}
+
+/* Tablet – 1024px */
+@media(max-width:1024px){
+  nav{padding:1.2rem 2rem;}
+  #hero{padding:0 2rem 3rem;}
+  #about{padding:5rem 2rem;}
+  .transform-section{padding:4rem 2rem;}
+  #how>div,#tech>div,#apps>div{padding:4rem 2rem;}
+  #conclusion{padding:5rem 2rem;}
+  footer{padding:1.5rem 2rem;}
+  .steps-grid{grid-template-columns:1fr 1fr;}
+  .tech-list{grid-template-columns:repeat(3,1fr);}
+  .apps-grid{grid-template-columns:1fr 1fr;}
+}
+
+/* Mobile – 768px */
+@media(max-width:768px){
+  /* Nav */
+  nav{padding:1rem 1.4rem;}
+  .nav-links{display:none;}
+  .nav-counter{display:none;}
+  .nav-hamburger{display:flex;}
+
+  /* Hero */
+  #hero{padding:0 1.4rem 3.5rem;justify-content:flex-end;}
+  h1.hero-title{font-size:clamp(3rem,17vw,6rem);margin-bottom:1.2rem;}
+  .hero-desc{font-size:.88rem;max-width:100%;margin-bottom:2rem;}
+  .hero-row{gap:1.6rem;}
+  .hero-stat-num{font-size:2rem;}
+  .hero-scroll{right:1.4rem;bottom:3rem;}
+  .gd1{width:350px;height:350px;}
+
+  /* About */
+  #about,
+  div[style*="grid-template-columns:1fr 1fr"]{
+    grid-template-columns:1fr!important;
+    gap:2.5rem!important;
+    padding:4rem 1.4rem!important;
+  }
+  .about-stats{grid-template-columns:1fr 1fr;}
+
+  /* Transform sections */
+  .transform-section{padding:3.5rem 1.4rem;}
+  .tx-layout{grid-template-columns:1fr!important;gap:2rem;}
+  .canvas-panel{height:280px!important;}
+  .canvas-panel canvas{height:280px!important;}
+
+  /* Wide canvas */
+  #wide-canvas,canvas[id="wide-canvas"]{height:240px!important;}
+
+  /* Steps / tech / apps */
+  .steps-grid{grid-template-columns:1fr;}
+  .tech-list{grid-template-columns:repeat(2,1fr);}
+  .apps-grid{grid-template-columns:1fr;}
+
+  /* Section titles */
+  h2.sec-title{font-size:clamp(2rem,9vw,3.5rem);}
+
+  /* Controls — translation buttons bigger tap targets */
+  .ctrl-btn{padding:.8rem .5rem;font-size:.85rem;}
+  .trans-controls{gap:.5rem;}
+
+  /* Footer */
+  footer{flex-direction:column;gap:.6rem;text-align:center;padding:1.5rem 1.4rem;}
+
+  /* Conclusion */
+  #conclusion{padding:4rem 1.4rem;}
+
+  /* Section padding helpers */
+  #how>div{padding:3.5rem 1.4rem!important;}
+  #tech>div{padding:3.5rem 1.4rem!important;}
+  #apps>div{padding:3.5rem 1.4rem!important;}
+
+  /* Wide canvas label */
+  div[style*="bottom:2rem;left:3rem"]{left:1.4rem!important;bottom:1rem!important;}
+  div[style*="top:2rem;right:3rem"]{top:1rem!important;right:1.4rem!important;}
+
+  /* Loader text */
+  .loader-text{font-size:2rem;}
+}
+
+/* Small phones – 480px */
+@media(max-width:480px){
+  h1.hero-title{font-size:clamp(2.6rem,18vw,4.5rem);}
+  .hero-row{gap:1.2rem;}
+  .hero-stat-num{font-size:1.7rem;}
+  .astat-n{font-size:2.5rem;}
+  .tech-list{grid-template-columns:1fr 1fr;}
+  .matrix-display{font-size:.65rem;padding:1rem;}
+  .about-stats{grid-template-columns:1fr 1fr;}
+  h2.sec-title{font-size:clamp(1.8rem,10vw,3rem);}
+}
+
+/* AUTHOR CREDIT BLOCK */
+.author-credit{
+  border-top:1px solid var(--border);
+  padding:3rem 3rem 3.5rem;
+  display:flex;flex-direction:column;align-items:center;gap:.8rem;
+  text-align:center;background:var(--bg2);
+}
+.author-credit-label{
+  font-family:'JetBrains Mono',monospace;font-size:.65rem;
+  letter-spacing:.25em;text-transform:uppercase;color:var(--muted);
+}
+.author-credit-name{
+  font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,5vw,2.8rem);
+  letter-spacing:.08em;color:var(--accent);line-height:1;
+}
+.author-credit-roll{
+  font-family:'JetBrains Mono',monospace;font-size:.75rem;
+  letter-spacing:.18em;color:var(--blue);
+  border:1px solid rgba(78,205,196,.25);
+  padding:.35rem 1rem;border-radius:2px;
+}
+@media(max-width:768px){
+  .author-credit{padding:2.5rem 1.4rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- CURSOR -->
+<div id="cur"></div>
+<div id="cur-trail"></div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-text">3D TRANSFORM</div>
+  <div class="loader-bar"><div class="loader-fill" id="lf"></div></div>
+  <div class="loader-sub" id="loader-sub">INITIALISING WEBGL · 0%</div>
+</div>
+
+<!-- MOBILE NAV OVERLAY -->
+<div class="nav-mobile-overlay" id="mobileMenu">
+  <a href="#about" onclick="closeMobileMenu()">About</a>
+  <a href="#rotation" onclick="closeMobileMenu()">Rotation</a>
+  <a href="#translation" onclick="closeMobileMenu()">Translation</a>
+  <a href="#scaling" onclick="closeMobileMenu()">Scaling</a>
+  <a href="#tech" onclick="closeMobileMenu()">Stack</a>
+  <a href="#apps" onclick="closeMobileMenu()">Apps</a>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">CG&amp;A · 3D TRANSFORM</div>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#rotation">Rotation</a>
+    <a href="#translation">Translation</a>
+    <a href="#scaling">Scaling</a>
+    <a href="#tech">Stack</a>
+    <a href="#apps">Apps</a>
+  </div>
+  <div class="nav-counter" id="nav-clock">00:00:00</div>
+  <button class="nav-hamburger" id="hamburger" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-noise"></div>
+  <div class="glow-dot gd1"></div>
+  <div class="glow-dot gd2"></div>
+
+  <div class="hero-content">
+    <div class="hero-eyebrow">Computer Graphics &amp; Animation · 2026</div>
+    <h1 class="hero-title">
+      3D<br>
+      <span class="accent">TRANS</span><span class="stroke">FORM</span><br>
+      ATION
+    </h1>
+    <p class="hero-desc">
+      An interactive, scroll-driven exploration of 3D transformations — rotation, translation and scaling — rendered in real-time with Three.js and WebGL.
+    </p>
+    <div class="hero-row">
+      <div class="hero-stat"><div class="hero-stat-num">3</div><div class="hero-stat-label">Transform Types</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">60</div><div class="hero-stat-label">FPS Target</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">4×4</div><div class="hero-stat-label">Matrix Size</div></div>
+      <div class="hero-stat"><div class="hero-stat-num">WebGL</div><div class="hero-stat-label">Renderer</div></div>
+    </div>
+  </div>
+
+  <div class="hero-scroll">
+    <div class="scroll-line"></div>
+    <span>Scroll</span>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="marquee">
+    <span class="marquee-item">ROTATION <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">TRANSLATION <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">SCALING <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">4×4 MATRIX <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">THREE.JS <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">WEBGL <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">COMPUTER GRAPHICS <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">REAL-TIME RENDERING <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">ROTATION <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">TRANSLATION <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">SCALING <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">4×4 MATRIX <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">THREE.JS <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">WEBGL <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">COMPUTER GRAPHICS <span class="marquee-dot">✦</span></span>
+    <span class="marquee-item">REAL-TIME RENDERING <span class="marquee-dot">✦</span></span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about" class="reveal">
+  <div class="glow-dot" style="width:500px;height:500px;background:var(--purple);top:0;right:-100px;opacity:.08;filter:blur(100px);"></div>
+  <div style="padding:7rem 3rem;display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;">
+    <div>
+      <div class="section-num">01</div>
+      <div class="section-label">About the Project</div>
+      <h2 class="sec-title">THE <em>FRAMEWORK</em><br>OF SPACE</h2>
+      <p class="body-text" style="margin-bottom:1rem;">
+        This project is developed as part of the <strong style="color:var(--text);">Computer Graphics and Animation</strong> course. It demonstrates the concept of 3D transformation — specifically rotation, translation, and scaling — using interactive web technologies.
+      </p>
+      <p class="body-text">
+        Every transformation in 3D graphics is encoded as a <strong style="color:var(--accent);">4×4 homogeneous matrix</strong>. Multiplying these matrices chains transforms together — the mathematical backbone of every graphics pipeline from mobile games to Hollywood VFX.
+      </p>
+    </div>
+    <div class="about-stats">
+      <div class="astat"><span class="astat-n">3</span><span class="astat-l">Transform Types</span></div>
+      <div class="astat"><span class="astat-n">60</span><span class="astat-l">FPS Target</span></div>
+      <div class="astat"><span class="astat-n">4×4</span><span class="astat-l">Matrix Size</span></div>
+      <div class="astat"><span class="astat-n">∞</span><span class="astat-l">Combinations</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ROTATION SECTION -->
+<section id="rotation" class="transform-section reveal">
+  <div class="section-num">02</div>
+  <div class="section-label">Core Concept · Transformation 01</div>
+  <h2 class="sec-title">3D TRANSFORM — <em>ROTATION</em></h2>
+  <div class="tx-layout">
+    <div class="tx-info">
+      <p>Rotation changes the <strong style="color:var(--text);">orientation</strong> of an object around the X, Y, or Z axis. Implemented as 4×4 matrices using cosine and sine functions — the mathematical backbone of every 3D graphics pipeline.</p>
+      <p>Drag the sphere below to rotate it freely in real-time. The readout shows live Euler angles across all three axes as you interact.</p>
+      <div class="axis-badges">
+        <span class="badge x">X · Pitch</span>
+        <span class="badge y">Y · Yaw</span>
+        <span class="badge z">Z · Roll</span>
+      </div>
+      <div class="matrix-display" id="rot-matrix">
+Rx(θ) =
+[ <span class="hl">1</span>   0       0    0 ]
+[ 0  cos θ  −sin θ  0 ]
+[ 0  sin θ   cos θ  0 ]
+[ 0   0       0    1 ]
+      </div>
+    </div>
+    <div class="canvas-panel" style="height:420px;">
+      <canvas id="rot-canvas" style="width:100%;height:420px;"></canvas>
+      <div class="panel-label">ROT · ICOSAHEDRON</div>
+      <div class="readout" id="rot-readout">X: 0.0°<br>Y: 0.0°<br>Z: 0.0°</div>
+      <div class="panel-hint">Drag to rotate · X Y Z axes</div>
+    </div>
+  </div>
+</section>
+
+<!-- FULL WIDTH THREE.JS SCENE -->
+<div style="position:relative;z-index:10;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+  <canvas id="wide-canvas" style="width:100%;height:420px;display:block;background:var(--bg2);"></canvas>
+  <div style="position:absolute;bottom:2rem;left:3rem;z-index:2;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.18em;color:rgba(232,255,71,.6);text-transform:uppercase;">Mesh · Real-time vertex displacement · Scroll to interact</div>
+  </div>
+  <div style="position:absolute;top:2rem;right:3rem;z-index:2;font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;">THREE.JS · WEBGL 2.0</div>
+</div>
+
+<!-- TRANSLATION SECTION -->
+<section id="translation" class="transform-section reveal">
+  <div class="section-num">03</div>
+  <div class="section-label">Core Concept · Transformation 02</div>
+  <h2 class="sec-title">3D TRANSFORM — <em>TRANSLATION</em></h2>
+  <div class="tx-layout">
+    <div class="tx-info">
+      <p>Translation <strong style="color:var(--text);">moves</strong> an object from one position to another in 3D space. It is represented by adding a displacement vector (tx, ty, tz) to the object's current coordinates.</p>
+      <p>Unlike rotation, translation does not change the orientation or size of an object — it simply shifts it. In matrix form, translation is applied using a 4×4 homogeneous transformation matrix.</p>
+      <div class="axis-badges">
+        <span class="badge x">X axis</span>
+        <span class="badge y">Y axis</span>
+        <span class="badge z">Z axis</span>
+      </div>
+      <div class="matrix-display">
+T(tx,ty,tz) =
+[ 1  0  0  <span class="hl">tx</span> ]
+[ 0  1  0  <span class="hl">ty</span> ]
+[ 0  0  1  <span class="hl">tz</span> ]
+[ 0  0  0   1  ]
+      </div>
+      <div class="trans-controls">
+        <button class="ctrl-btn" data-axis="x" data-dir="-1">← X</button>
+        <button class="ctrl-btn" data-axis="y" data-dir="1">↑ Y</button>
+        <button class="ctrl-btn" data-axis="x" data-dir="1">X →</button>
+        <button class="ctrl-btn" data-axis="z" data-dir="1">+ Z</button>
+        <button class="ctrl-btn" id="trans-reset" style="border-color:var(--accent2);color:var(--accent2);">⟲ Reset</button>
+        <button class="ctrl-btn" data-axis="z" data-dir="-1">− Z</button>
+        <button class="ctrl-btn" data-axis="y" data-dir="-1" style="grid-column:1/4;">↓ Y</button>
+      </div>
+    </div>
+    <div class="canvas-panel" style="height:420px;">
+      <canvas id="trans-canvas" style="width:100%;height:420px;"></canvas>
+      <div class="panel-label">TRANS · CUBE</div>
+      <div class="readout" id="trans-readout">X: 0.00<br>Y: 0.00<br>Z: 0.00</div>
+      <div class="panel-hint">Click buttons to translate</div>
+    </div>
+  </div>
+</section>
+
+<!-- SCALING SECTION -->
+<section id="scaling" class="transform-section reveal">
+  <div class="section-num">04</div>
+  <div class="section-label">Core Concept · Transformation 03</div>
+  <h2 class="sec-title">3D TRANSFORM — <em>SCALING</em></h2>
+  <div class="tx-layout">
+    <div class="tx-info">
+      <p>Scaling <strong style="color:var(--text);">changes the size</strong> of an object by multiplying its coordinates by scale factors (sx, sy, sz). Uniform scaling applies the same factor to all axes; non-uniform stretches them independently.</p>
+      <p>Drag the sliders to apply non-uniform scaling along each axis. Watch how the torus deforms in real-time — demonstrating the diagonal nature of the scaling matrix.</p>
+      <div class="axis-badges">
+        <span class="badge x">Sx · Width</span>
+        <span class="badge y">Sy · Height</span>
+        <span class="badge z">Sz · Depth</span>
+      </div>
+      <div class="matrix-display">
+S(sx,sy,sz) =
+[ <span class="hl">sx</span>  0   0  0 ]
+[  0  <span class="hl">sy</span>  0  0 ]
+[  0   0  <span class="hl">sz</span> 0 ]
+[  0   0   0  1 ]
+      </div>
+      <div class="scale-sliders">
+        <div class="slider-row">
+          <span class="slider-ax x">Sx</span>
+          <input type="range" class="rx" id="sx" min="10" max="300" value="100" style="--val:.5;">
+          <span class="slider-val" id="sx-val">1.00</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-ax y">Sy</span>
+          <input type="range" class="ry" id="sy" min="10" max="300" value="100" style="--val:.5;">
+          <span class="slider-val" id="sy-val">1.00</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-ax z">Sz</span>
+          <input type="range" class="rz" id="sz" min="10" max="300" value="100" style="--val:.5;">
+          <span class="slider-val" id="sz-val">1.00</span>
+        </div>
+      </div>
+    </div>
+    <div class="canvas-panel" style="height:420px;">
+      <canvas id="scale-canvas" style="width:100%;height:420px;"></canvas>
+      <div class="panel-label">SCALE · TORUS</div>
+      <div class="readout" id="scale-readout">Sx: 1.00<br>Sy: 1.00<br>Sz: 1.00</div>
+      <div class="panel-hint">Drag sliders to scale · X Y Z</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="reveal">
+  <div style="padding:6rem 3rem;border-top:1px solid var(--border);">
+    <div class="section-num">05</div>
+    <div class="section-label">Mechanics</div>
+    <h2 class="sec-title">HOW IT <em>WORKS</em></h2>
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Matrix Composition</h3>
+        <p>Every transform is a 4×4 matrix. Chaining transforms multiplies matrices left-to-right, enabling complex combined movements in a single draw call.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>WebGL Pipeline</h3>
+        <p>Three.js abstracts the WebGL vertex shader. Each vertex position is multiplied by the Model-View-Projection matrix before rasterisation.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>User Input Mapping</h3>
+        <p>Mouse drag events map to Euler angle deltas. Keyboard and slider inputs map to translation vectors and scale factors in real time.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>requestAnimationFrame</h3>
+        <p>Each animation frame calls renderer.render(), updating the scene graph at the display's refresh rate — targeting 60fps for fluid motion.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech" class="reveal">
+  <div style="padding:6rem 3rem;border-top:1px solid var(--border);">
+    <div class="section-num">06</div>
+    <div class="section-label">Technologies Used</div>
+    <h2 class="sec-title">OPEN SOURCE <em>STACK</em></h2>
+    <div class="tech-list">
+      <div class="tech-item"><span class="tech-abbr">HTML</span><span class="tech-name">HyperText Markup Language</span><span class="tech-desc">Structure</span></div>
+      <div class="tech-item"><span class="tech-abbr">CSS</span><span class="tech-name">Cascading Style Sheets</span><span class="tech-desc">Presentation</span></div>
+      <div class="tech-item"><span class="tech-abbr">JS</span><span class="tech-name">JavaScript ES2022</span><span class="tech-desc">Logic</span></div>
+      <div class="tech-item"><span class="tech-abbr">THREE</span><span class="tech-name">Three.js r128</span><span class="tech-desc">3D Engine</span></div>
+      <div class="tech-item"><span class="tech-abbr">WGL</span><span class="tech-name">WebGL 2.0</span><span class="tech-desc">GPU Renderer</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- APPS -->
+<section id="apps" class="reveal">
+  <div style="padding:6rem 3rem;border-top:1px solid var(--border);">
+    <div class="section-num">07</div>
+    <div class="section-label">Real World</div>
+    <h2 class="sec-title">APPLICATIONS OF <em>3D TRANSFORM</em></h2>
+    <div class="apps-grid">
+      <div class="app-card"><span class="app-icon">🎮</span><h3>Video Games</h3><p>Real-time transforms power every object in engines like Unity and Unreal — from character movement to camera rigs.</p></div>
+      <div class="app-card"><span class="app-icon">🥽</span><h3>Virtual Reality</h3><p>Head tracking is pure rotation matrix math — mapping sensor quaternions to the camera transform 90× per second.</p></div>
+      <div class="app-card"><span class="app-icon">🎬</span><h3>Animation & Film</h3><p>CGI character rigs use hierarchical transform trees — each bone is a local transform matrix relative to its parent.</p></div>
+      <div class="app-card"><span class="app-icon">🛸</span><h3>Simulation</h3><p>Flight simulators encode aircraft attitude as rotation matrices, enabling physically accurate 6-DOF motion.</p></div>
+      <div class="app-card"><span class="app-icon">🌐</span><h3>Interactive Web</h3><p>Browser-based 3D experiences — from product visualisers to data maps — all rely on the same WebGL matrix math.</p></div>
+      <div class="app-card"><span class="app-icon">🔬</span><h3>Scientific Vis</h3><p>Molecular viewers, CT scan renderers, and physics simulations all transform 3D data into meaningful 2D projections.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONCLUSION -->
+<section id="conclusion" class="reveal">
+  <div class="conclusion-inner">
+    <div class="section-num" style="text-align:center;">08</div>
+    <div class="section-label" style="border:none;padding:0;text-align:center;letter-spacing:.18em;font-size:.72rem;margin-bottom:2.5rem;">Conclusion</div>
+    <p class="big-quote">
+      "3D transformation matrices are the <strong>mathematical backbone</strong> of all modern graphics pipelines — from <span class="accent">mobile games</span> to Hollywood VFX."
+    </p>
+    <p class="body-text" style="text-align:center;max-width:560px;margin:0 auto;">
+      This project demonstrates how rotation, translation, and scaling — three simple matrix operations — combine to create every visual experience in the digital world.
+    </p>
+  </div>
+</section>
+
+<!-- AUTHOR CREDIT -->
+<div class="author-credit">
+  <div class="author-credit-label">Project Submitted By</div>
+  <div class="author-credit-name">Nived Krishna K</div>
+  <div class="author-credit-roll">RA2412707010014</div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <span>DEVELOPED FOR <span class="fl">CG&A · 2026</span></span>
+  <span>3D Transformation · Three.js · WebGL</span>
+  <span>© 2026 · All Rights Reserved</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ─── LOADER ─────────────────────────────────────── */
+const lf = document.getElementById('lf');
+const lsub = document.getElementById('loader-sub');
+let lp = 0;
+const lint = setInterval(() => {
+  lp += Math.random() * 12;
+  if(lp >= 100){ lp = 100; clearInterval(lint); }
+  lf.style.width = lp + '%';
+  lsub.textContent = 'INITIALISING WEBGL · ' + Math.round(lp) + '%';
+  if(lp === 100){
+    setTimeout(() => document.getElementById('loader').classList.add('done'), 400);
+  }
+}, 80);
+
+/* ─── CURSOR ─────────────────────────────────────── */
+const cur = document.getElementById('cur');
+const trail = document.getElementById('cur-trail');
+let mx=0,my=0,tx=0,ty=0;
+document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; cur.style.left=mx+'px'; cur.style.top=my+'px'; });
+(function animCur(){ tx+=(mx-tx)*0.15; ty+=(my-ty)*0.15; trail.style.left=tx+'px'; trail.style.top=ty+'px'; requestAnimationFrame(animCur); })();
+
+/* ─── CLOCK ──────────────────────────────────────── */
+const clk = document.getElementById('nav-clock');
+setInterval(() => {
+  const d = new Date();
+  clk.textContent = [d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+}, 1000);
+
+/* ─── SCROLL REVEAL ──────────────────────────────── */
+const reveals = document.querySelectorAll('.reveal');
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+reveals.forEach(r => ro.observe(r));
+
+/* ─── HELPER: make renderer ─────────────────────── */
+function makeRenderer(canvas, w, h) {
+  const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  r.setSize(w, h, false);
+  r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  r.setClearColor(0x111118, 1);
+  return r;
+}
+function makeCamera(w, h, fov=55) {
+  const c = new THREE.PerspectiveCamera(fov, w/h, 0.1, 100);
+  c.position.set(0,0,4.5);
+  return c;
+}
+
+/* ════════════════════════════════════════════════
+   HERO CANVAS — Particle ocean / wave field
+   ════════════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('hero-canvas');
+  const W = canvas.offsetWidth || window.innerWidth;
+  const H = canvas.offsetHeight || window.innerHeight;
+  const renderer = makeRenderer(canvas, W, H);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, W/H, 0.1, 100);
+  camera.position.set(0, 6, 10); camera.lookAt(0,0,0);
+
+  // Grid plane
+  const geo = new THREE.PlaneGeometry(24, 24, 80, 80);
+  geo.rotateX(-Math.PI/2);
+  const origPos = geo.attributes.position.array.slice();
+  const mat = new THREE.MeshBasicMaterial({ color:0xe8ff47, wireframe:true, transparent:true, opacity:0.12 });
+  const plane = new THREE.Mesh(geo, mat);
+  scene.add(plane);
+
+  // Floating particles
+  const pCount = 600;
+  const pGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(pCount*3);
+  for(let i=0;i<pCount;i++){
+    pPos[i*3]=(Math.random()-0.5)*20;
+    pPos[i*3+1]=Math.random()*4-1;
+    pPos[i*3+2]=(Math.random()-0.5)*20;
+  }
+  pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+  const pMat = new THREE.PointsMaterial({color:0xe8ff47,size:0.04,transparent:true,opacity:0.5});
+  scene.add(new THREE.Points(pGeo,pMat));
+
+  // Accent sphere
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1.2, 64, 64),
+    new THREE.MeshPhysicalMaterial({color:0x0a0a0e,metalness:.9,roughness:.05,wireframe:false,emissive:new THREE.Color(0xe8ff47),emissiveIntensity:.06})
+  );
+  sphere.position.set(3.5,1.5,-2);
+  scene.add(sphere);
+  const pl1 = new THREE.PointLight(0xe8ff47,2,12); pl1.position.set(5,4,3); scene.add(pl1);
+  const pl2 = new THREE.PointLight(0xa855f7,2,12); pl2.position.set(-5,-2,-3); scene.add(pl2);
+  scene.add(new THREE.AmbientLight(0xffffff,.15));
+
+  let t=0;
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.008;
+    const pos = geo.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      const ox=origPos[i*3], oz=origPos[i*3+2];
+      pos.array[i*3+1] = Math.sin(ox*.5+t)*Math.cos(oz*.5+t)*.6;
+    }
+    pos.needsUpdate=true;
+    sphere.rotation.y+=0.005; sphere.rotation.x+=0.002;
+    pl1.position.x=Math.cos(t*.4)*6; pl1.position.z=Math.sin(t*.4)*6;
+    renderer.render(scene,camera);
+  })();
+
+  window.addEventListener('resize',()=>{
+    const nw=canvas.offsetWidth, nh=canvas.offsetHeight;
+    renderer.setSize(nw,nh,false); camera.aspect=nw/nh; camera.updateProjectionMatrix();
+  });
+})();
+
+/* ════════════════════════════════════════════════
+   ROTATION CANVAS — Draggable Icosahedron
+   ════════════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('rot-canvas');
+  const W=canvas.offsetWidth||600, H=420;
+  const renderer = makeRenderer(canvas,W,H);
+  const scene = new THREE.Scene();
+  const camera = makeCamera(W,H);
+  scene.add(new THREE.AmbientLight(0xffffff,.4));
+  const pl1=new THREE.PointLight(0xe8ff47,3,15); pl1.position.set(4,3,4); scene.add(pl1);
+  const pl2=new THREE.PointLight(0xa855f7,3,15); pl2.position.set(-4,-3,-4); scene.add(pl2);
+
+  const mesh = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.5,2),
+    new THREE.MeshPhysicalMaterial({color:0x1a1a2e,metalness:.85,roughness:.1,emissive:new THREE.Color(0xe8ff47),emissiveIntensity:.05,wireframe:false})
+  );
+  scene.add(mesh);
+  const wire = new THREE.LineSegments(new THREE.WireframeGeometry(mesh.geometry),new THREE.LineBasicMaterial({color:0xe8ff47,transparent:true,opacity:.15}));
+  mesh.add(wire);
+
+  let isDragging=false, prevMouse={x:0,y:0}, rotVel={x:0,y:0}, euler={x:0,y:0,z:0};
+  canvas.addEventListener('mousedown',e=>{isDragging=true;prevMouse={x:e.clientX,y:e.clientY};});
+  document.addEventListener('mouseup',()=>isDragging=false);
+  document.addEventListener('mousemove',e=>{
+    if(!isDragging)return;
+    const dx=e.clientX-prevMouse.x, dy=e.clientY-prevMouse.y;
+    rotVel.y=dx*0.005; rotVel.x=dy*0.005;
+    prevMouse={x:e.clientX,y:e.clientY};
+  });
+  canvas.addEventListener('touchstart',e=>{isDragging=true;prevMouse={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+  canvas.addEventListener('touchend',()=>isDragging=false);
+  canvas.addEventListener('touchmove',e=>{
+    if(!isDragging)return;
+    const dx=e.touches[0].clientX-prevMouse.x, dy=e.touches[0].clientY-prevMouse.y;
+    rotVel.y=dx*0.005; rotVel.x=dy*0.005;
+    prevMouse={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  },{passive:true});
+
+  const readout=document.getElementById('rot-readout');
+  let t=0;
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.005;
+    if(!isDragging){ rotVel.x*=0.95; rotVel.y*=0.95; rotVel.y+=0.003; }
+    euler.x+=rotVel.x; euler.y+=rotVel.y; euler.z+=0.001;
+    mesh.rotation.set(euler.x,euler.y,euler.z);
+    readout.innerHTML=`X: ${(euler.x*180/Math.PI%360).toFixed(1)}°<br>Y: ${(euler.y*180/Math.PI%360).toFixed(1)}°<br>Z: ${(euler.z*180/Math.PI%360).toFixed(1)}°`;
+    pl1.position.x=Math.cos(t)*5; pl1.position.z=Math.sin(t)*5;
+    renderer.render(scene,camera);
+  })();
+})();
+
+/* ════════════════════════════════════════════════
+   WIDE CANVAS — Ocean / displaced grid
+   ════════════════════════════════════════════════ */
+(function(){
+  const canvas=document.getElementById('wide-canvas');
+  const W=canvas.offsetWidth||window.innerWidth, H=420;
+  const renderer=makeRenderer(canvas,W,H);
+  renderer.setClearColor(0x0a0a0e,1);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(50,W/H,.1,100);
+  camera.position.set(0,5,12); camera.lookAt(0,0,0);
+  scene.add(new THREE.AmbientLight(0xffffff,.2));
+  const pl=new THREE.PointLight(0x4ecdc4,4,20); pl.position.set(0,4,0); scene.add(pl);
+  const pl2=new THREE.PointLight(0xa855f7,3,20); pl2.position.set(-6,-2,-6); scene.add(pl2);
+
+  const geo=new THREE.PlaneGeometry(20,20,100,100); geo.rotateX(-Math.PI/2);
+  const orig=geo.attributes.position.array.slice();
+  const mat=new THREE.MeshPhongMaterial({color:0x0a0a2e,emissive:new THREE.Color(0x4ecdc4),emissiveIntensity:.04,wireframe:false,transparent:true,opacity:.9,side:THREE.DoubleSide});
+  const plane=new THREE.Mesh(geo,mat); scene.add(plane);
+  const wire=new THREE.LineSegments(new THREE.WireframeGeometry(geo.clone()),new THREE.LineBasicMaterial({color:0x4ecdc4,transparent:true,opacity:.12}));
+  scene.add(wire);
+
+  let t=0, scrollOff=0;
+  window.addEventListener('scroll',()=>{ scrollOff=window.scrollY*.001; });
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.012;
+    const pos=geo.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      const ox=orig[i*3],oz=orig[i*3+2];
+      pos.array[i*3+1]=Math.sin(ox*.5+t+scrollOff)*Math.cos(oz*.4+t*.7)*.8+Math.sin(ox+oz+t*.5)*.3;
+    }
+    pos.needsUpdate=true; geo.computeVertexNormals();
+    wire.geometry.attributes.position.array.set(pos.array);
+    wire.geometry.attributes.position.needsUpdate=true;
+    pl.position.x=Math.cos(t*.3)*6; pl.position.z=Math.sin(t*.3)*6;
+    renderer.render(scene,camera);
+  })();
+  window.addEventListener('resize',()=>{
+    const nw=canvas.offsetWidth;
+    renderer.setSize(nw,H,false); camera.aspect=nw/H; camera.updateProjectionMatrix();
+  });
+})();
+
+/* ════════════════════════════════════════════════
+   TRANSLATION CANVAS
+   ════════════════════════════════════════════════ */
+(function(){
+  const canvas=document.getElementById('trans-canvas');
+  const W=canvas.offsetWidth||600, H=420;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene();
+  const camera=makeCamera(W,H,50);
+  camera.position.set(0,0,8);
+  scene.add(new THREE.AmbientLight(0xffffff,.35));
+  const pl1=new THREE.PointLight(0xff4757,4,15); pl1.position.set(4,3,4); scene.add(pl1);
+  const pl2=new THREE.PointLight(0xe8ff47,3,15); pl2.position.set(-4,-3,-4); scene.add(pl2);
+
+  const group=new THREE.Group();
+  const mat=new THREE.MeshPhysicalMaterial({color:0x1a0a2e,metalness:.8,roughness:.15,emissive:new THREE.Color(0xff4757),emissiveIntensity:.06});
+  const cube=new THREE.Mesh(new THREE.BoxGeometry(2,2,2,4,4,4),mat);
+  const wire=new THREE.LineSegments(new THREE.WireframeGeometry(cube.geometry),new THREE.LineBasicMaterial({color:0xff4757,transparent:true,opacity:.2}));
+  cube.add(wire); group.add(cube); scene.add(group);
+
+  // Grid helper
+  const grid=new THREE.GridHelper(10,10,0x333344,0x222233);
+  scene.add(grid);
+
+  let pos={x:0,y:0,z:0}, targetPos={x:0,y:0,z:0};
+  const readout=document.getElementById('trans-readout');
+
+  document.querySelectorAll('[data-axis]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const ax=btn.dataset.axis, dir=parseFloat(btn.dataset.dir);
+      targetPos[ax]+=dir*.8;
+      targetPos[ax]=Math.max(-3,Math.min(3,targetPos[ax]));
+    });
+  });
+  document.getElementById('trans-reset').addEventListener('click',()=>{ targetPos={x:0,y:0,z:0}; });
+
+  let t=0;
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.006;
+    pos.x+=(targetPos.x-pos.x)*.08;
+    pos.y+=(targetPos.y-pos.y)*.08;
+    pos.z+=(targetPos.z-pos.z)*.08;
+    group.position.set(pos.x,pos.y,pos.z);
+    cube.rotation.y+=0.005; cube.rotation.x+=0.003;
+    pl1.position.x=Math.cos(t*.5)*5; pl1.position.z=Math.sin(t*.5)*5;
+    readout.innerHTML=`X: ${pos.x.toFixed(2)}<br>Y: ${pos.y.toFixed(2)}<br>Z: ${pos.z.toFixed(2)}`;
+    renderer.render(scene,camera);
+  })();
+})();
+
+/* ════════════════════════════════════════════════
+   SCALING CANVAS
+   ════════════════════════════════════════════════ */
+(function(){
+  const canvas=document.getElementById('scale-canvas');
+  const W=canvas.offsetWidth||600, H=420;
+  const renderer=makeRenderer(canvas,W,H);
+  const scene=new THREE.Scene();
+  const camera=makeCamera(W,H,50);
+  camera.position.set(0,0,6);
+  scene.add(new THREE.AmbientLight(0xffffff,.35));
+  const pl1=new THREE.PointLight(0x4ecdc4,4,15); pl1.position.set(4,3,4); scene.add(pl1);
+  const pl2=new THREE.PointLight(0xa855f7,3,15); pl2.position.set(-4,-3,-4); scene.add(pl2);
+
+  const mat=new THREE.MeshPhysicalMaterial({color:0x0a1a2e,metalness:.8,roughness:.1,emissive:new THREE.Color(0x4ecdc4),emissiveIntensity:.07});
+  const torus=new THREE.Mesh(new THREE.TorusGeometry(1.2,.45,32,100),mat);
+  const wire=new THREE.LineSegments(new THREE.WireframeGeometry(torus.geometry),new THREE.LineBasicMaterial({color:0x4ecdc4,transparent:true,opacity:.15}));
+  torus.add(wire); scene.add(torus);
+
+  const sxEl=document.getElementById('sx'), syEl=document.getElementById('sy'), szEl=document.getElementById('sz');
+  const sxV=document.getElementById('sx-val'), syV=document.getElementById('sy-val'), szV=document.getElementById('sz-val');
+  const readout=document.getElementById('scale-readout');
+
+  function updateSlider(el){
+    const v=(el.value-10)/(300-10);
+    el.style.setProperty('--val',v);
+  }
+  [sxEl,syEl,szEl].forEach(el=>{ el.addEventListener('input',()=>updateSlider(el)); updateSlider(el); });
+
+  let t=0;
+  (function loop(){
+    requestAnimationFrame(loop); t+=0.007;
+    const sx=sxEl.value/100, sy=syEl.value/100, sz=szEl.value/100;
+    torus.scale.set(sx,sy,sz);
+    torus.rotation.y+=0.007; torus.rotation.x+=0.004;
+    sxV.textContent=sx.toFixed(2); syV.textContent=sy.toFixed(2); szV.textContent=sz.toFixed(2);
+    readout.innerHTML=`Sx: ${sx.toFixed(2)}<br>Sy: ${sy.toFixed(2)}<br>Sz: ${sz.toFixed(2)}`;
+    pl1.position.x=Math.cos(t*.5)*5; pl1.position.z=Math.sin(t*.5)*5;
+    renderer.render(scene,camera);
+  })();
+})();
+
+/* ─── SCROLL NAV HIGHLIGHT ───────────────────────── */
+window.addEventListener('scroll',()=>{
+  const sections=['about','rotation','translation','scaling','tech','apps'];
+  sections.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const rect=el.getBoundingClientRect();
+    const link=document.querySelector(`a[href="#${id}"]`);
+    if(link) link.style.color = rect.top < 120 && rect.bottom > 0 ? 'var(--accent)' : '';
+  });
+});
+</script>
+</body>
+</html>
